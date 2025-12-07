@@ -148,7 +148,48 @@ export default function ChessTutor() {
     return { text: `${game.turn() === 'w' ? 'White' : 'Black'} to move`, type: 'normal' };
   };
 
+  // Calculate captured pieces from FEN
+  const getCapturedPieces = () => {
+    const startingPieces = { p: 8, r: 2, n: 2, b: 2, q: 1, k: 1, P: 8, R: 2, N: 2, B: 2, Q: 1, K: 1 };
+    const currentPieces: Record<string, number> = {};
+    const fen = game.fen().split(' ')[0];
+
+    for (const char of fen) {
+      if (/[prnbqkPRNBQK]/.test(char)) {
+        currentPieces[char] = (currentPieces[char] || 0) + 1;
+      }
+    }
+
+    const whiteCaptured: string[] = []; // black pieces that white captured
+    const blackCaptured: string[] = []; // white pieces that black captured
+
+    for (const [piece, count] of Object.entries(startingPieces)) {
+      const remaining = currentPieces[piece] || 0;
+      const captured = count - remaining;
+      for (let i = 0; i < captured; i++) {
+        if (piece === piece.toLowerCase()) {
+          // lowercase = black piece, captured by white
+          whiteCaptured.push(piece);
+        } else {
+          // uppercase = white piece, captured by black
+          blackCaptured.push(piece);
+        }
+      }
+    }
+
+    return { whiteCaptured, blackCaptured };
+  };
+
+  const pieceToSymbol = (piece: string) => {
+    const symbols: Record<string, string> = {
+      'p': '♟', 'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚',
+      'P': '♙', 'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔',
+    };
+    return symbols[piece] || piece;
+  };
+
   const statusInfo = gameStatus();
+  const { whiteCaptured, blackCaptured } = getCapturedPieces();
 
   return (
     <div style={styles.container}>
@@ -169,17 +210,6 @@ export default function ChessTutor() {
       <main style={styles.main}>
         {/* Board Section */}
         <section style={styles.boardSection}>
-          {/* Status Bar */}
-          <div style={styles.statusBar}>
-            <div style={styles.statusIndicator}>
-              <span style={styles.statusDot} />
-              <span style={styles.statusText}>{status}</span>
-            </div>
-            <div style={styles.timestamp}>
-              {lastSaved && `Last sync: ${lastSaved.toLocaleTimeString()}`}
-            </div>
-          </div>
-
           {/* Chess Board */}
           <div style={styles.boardWrapper}>
             <div style={styles.boardFrame}>
@@ -195,6 +225,26 @@ export default function ChessTutor() {
                   boardStyle: { borderRadius: 0 },
                 }}
               />
+            </div>
+          </div>
+
+          {/* Captured Pieces */}
+          <div style={styles.capturedRow}>
+            <div style={styles.capturedSide}>
+              <span style={styles.capturedLabel}>White captured:</span>
+              <span style={styles.capturedPieces}>
+                {whiteCaptured.length > 0 ? whiteCaptured.map((p, i) => (
+                  <span key={i} style={styles.capturedPiece}>{pieceToSymbol(p)}</span>
+                )) : <span style={styles.noneCapture}>—</span>}
+              </span>
+            </div>
+            <div style={styles.capturedSide}>
+              <span style={styles.capturedLabel}>Black captured:</span>
+              <span style={styles.capturedPieces}>
+                {blackCaptured.length > 0 ? blackCaptured.map((p, i) => (
+                  <span key={i} style={styles.capturedPiece}>{pieceToSymbol(p)}</span>
+                )) : <span style={styles.noneCapture}>—</span>}
+              </span>
             </div>
           </div>
 
@@ -220,6 +270,17 @@ export default function ChessTutor() {
 
         {/* Panel Section */}
         <aside style={styles.panel}>
+          {/* Status Bar */}
+          <div style={styles.statusBar}>
+            <div style={styles.statusIndicator}>
+              <span style={styles.statusDot} />
+              <span style={styles.statusText}>{status}</span>
+            </div>
+            <div style={styles.timestamp}>
+              {lastSaved && `Last sync: ${lastSaved.toLocaleTimeString()}`}
+            </div>
+          </div>
+
           {/* Move Log */}
           <div style={styles.panelSection}>
             <div style={styles.panelHeader}>
@@ -291,7 +352,7 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: '100vh',
     display: 'flex',
     flexDirection: 'column',
-    maxWidth: 1200,
+    maxWidth: 1400,
     margin: '0 auto',
     padding: '0 24px',
   },
@@ -348,6 +409,7 @@ const styles: Record<string, React.CSSProperties> = {
   boardSection: {
     display: 'flex',
     flexDirection: 'column',
+    alignItems: 'center',
     gap: 16,
   },
   statusBar: {
@@ -381,7 +443,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   boardWrapper: {
     aspectRatio: '1',
-    maxWidth: 520,
+    maxWidth: 800,
   },
   boardFrame: {
     padding: 12,
@@ -499,5 +561,37 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 4,
     fontSize: 11,
     color: 'var(--accent-amber)',
+  },
+  capturedRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 24,
+    padding: '12px 16px',
+    background: 'var(--bg-panel)',
+    borderRadius: 8,
+    border: '1px solid var(--border-subtle)',
+  },
+  capturedSide: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  capturedLabel: {
+    fontSize: 11,
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+  },
+  capturedPieces: {
+    display: 'flex',
+    gap: 2,
+  },
+  capturedPiece: {
+    fontSize: 20,
+    lineHeight: 1,
+  },
+  noneCapture: {
+    color: 'var(--text-muted)',
+    fontSize: 13,
   },
 };
